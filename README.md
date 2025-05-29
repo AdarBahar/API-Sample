@@ -68,4 +68,4 @@ curl -X 'GET' \
 - For quick sharing, you can use [ngrok](https://ngrok.com/) to expose your local server.
 
 ## Contact
-For questions or support, contact: [your-email@example.com] 
+For questions or support, contact: [adar@bahar.co.il] 
