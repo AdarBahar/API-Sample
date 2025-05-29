@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Virtual environment
+venv/
+ENV/
+.env/
+.venv/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# VSCode
+.vscode/
+
+# macOS
+.DS_Store
+
+# CSV data (optional: comment out if you want to keep CSV in repo)
+# cost_report.csv
+
+# Logs
+*.log
+
+# OS files
+Thumbs.db 
