@@ -29,7 +29,12 @@ A FastAPI-based REST API for querying usage and cost reports from a CSV file, wi
    ```
 2. **Install dependencies:**
    ```bash
-   pip install fastapi uvicorn pandas numpy
+   pip install -r requirements.txt
+   ```
+
+   For development (includes testing and code quality tools):
+   ```bash
+   pip install -r requirements-dev.txt
    ```
 3. **Place your `cost_report.csv` file in the project root.**
 
