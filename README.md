@@ -10,8 +10,8 @@ A FastAPI-based REST API for querying usage and cost reports from a CSV file, wi
 - **Comprehensive Filtering**: Query usage and cost data by account, subscription, database, plan type, date range, region, and custom tags
 - **Flexible Parameters**: All query parameters are optional except `account_id` - use any combination to filter results
 - **Structured Responses**: Returns data in a predictable format with `data` array and `total_rows` count
-- **Internal Safety Limits**: Enforces a 10-row maximum to prevent timeouts and large payloads
-- **Robust Validation**: Numeric-only validation for IDs, date format validation (YYYY-MM-DD)
+- **Configurable Row Limits**: Adjustable row limits (1-100) for testing purposes with default safety limit of 10 rows
+- **Robust Validation**: Numeric-only validation for IDs, date format validation (YYYY-MM-DD), row limit validation
 - **Dynamic Tag Support**: Extracts and filters by custom tags from CSV columns (key1:value, key2:value format)
 - **Error Handling**: Returns structured JSON errors with clear messages and appropriate HTTP status codes
 - **OpenAPI Documentation**: Interactive Swagger UI with enhanced column widths for better readability
@@ -62,30 +62,46 @@ GET /usage-cost-report
 - `region`: (Optional) Filter by region
 - `tag1`: (Optional) Filter by tag1 value (key1:value)
 - `tag2`: (Optional) Filter by tag2 value (key2:value)
+- `limit`: (Optional) Maximum number of rows to return (default: 10, max: 100) - **TESTING ONLY**
 
-⚠️ **Internal Row Limit**: The API enforces an internal maximum of **10 rows**. If your query returns more than this limit, a `RowLimitExceeded` error is returned.
+📊 **Row Limit Control**:
+- Default limit: **10 rows**
+- Configurable limit: **1-100 rows** (for testing purposes)
+- If your query returns more than the specified limit, a `RowLimitExceeded` error is returned.
 
-#### Example Request
+⚠️ **Important**: The `limit` parameter is available for testing purposes only and should be removed in production environments.
+
+#### Example Requests
+**Basic request (default 10 rows):**
 ```bash
 curl -X 'GET' \
   'http://127.0.0.1:8090/usage-cost-report?account_id=12345&plan_type=Pro&start_date=2024-10-01&end_date=2024-11-30&database_id=11415100&tag1=name15' \
   -H 'accept: application/json'
 ```
 
+**Request with custom row limit (testing only):**
+```bash
+curl -X 'GET' \
+  'http://127.0.0.1:8090/usage-cost-report?account_id=12345&plan_type=Pro&limit=50' \
+  -H 'accept: application/json'
+```
+
 **Important**:
 - The `account_id` parameter is mandatory and must be provided in every request. If omitted or empty, the API will return a 400 error with the message: `{"error": "account_id parameter is mandatory"}`.
-- The API enforces an internal maximum of **10 rows**. If query results exceed this limit, the API returns a 413 error instead of truncated data. This prevents timeouts and large payloads.
+- The API enforces a configurable row limit (default: 10, max: 100). If query results exceed this limit, the API returns a 413 error instead of truncated data. This prevents timeouts and large payloads.
+- The `limit` parameter is for testing purposes only and should be removed in production environments.
 - The `tag1` and `tag2` parameters search for values within the respective tag columns (key1:value and key2:value).
 - Successful responses return a structured format with `data` (array of results) and `total_rows` (count of returned rows).
 
 **Validation Rules**:
 - **Numeric Parameters**: `account_id`, `subscription_id`, and `database_id` must contain only numeric characters (0-9). Invalid values will return a 400 error.
 - **Date Parameters**: `start_date` and `end_date` must be in YYYY-MM-DD format. Invalid formats will return a 400 error.
+- **Limit Parameter**: `limit` must be between 1 and 100. Invalid values will return a 422 validation error.
 
 **Error Examples**:
 - Invalid numeric (400): `{"error": "account_id must be numeric only"}`
 - Invalid date (400): `{"error": "start_date must be in YYYY-MM-DD format"}`
-- Row limit exceeded (413): `{"error": "RowLimitExceeded", "message": "The number of rows matching your request exceeds the allowed maximum of 10. Please adjust your filters."}`
+- Row limit exceeded (413): `{"error": "RowLimitExceeded", "message": "The number of rows matching your request (25) exceeds the specified limit of 10. Please adjust your filters or increase the limit (max: 100)."}`
 
 #### Response Format
 
@@ -124,13 +140,29 @@ curl -X 'GET' \
 ```json
 {
   "error": "RowLimitExceeded",
-  "message": "The number of rows matching your request exceeds the allowed maximum of 10. Please adjust your filters."
+  "message": "The number of rows matching your request (25) exceeds the specified limit of 10. Please adjust your filters or increase the limit (max: 100)."
 }
 ```
 
 ## Deployment
+
+### Production Considerations
+⚠️ **Before deploying to production:**
+1. **Remove the `limit` parameter** from the API endpoint - it's intended for testing only
+2. **Set a fixed row limit** in the code (recommended: 10-50 rows depending on your use case)
+3. **Review and adjust** the `ABSOLUTE_MAX_ROWS_LIMIT` constant based on your performance requirements
+4. **Consider implementing** authentication and rate limiting for production use
+
+### Deployment Platforms
 - You can deploy this app to platforms like [Render.com](https://render.com), [Railway.app](https://railway.app), [Fly.io](https://fly.io), or any cloud provider that supports Python web apps.
 - For quick sharing, you can use [ngrok](https://ngrok.com/) to expose your local server.
+
+### Production Deployment Steps
+1. Remove the `limit` parameter from the endpoint
+2. Set environment variables for configuration
+3. Use a production WSGI server like Gunicorn
+4. Configure proper logging and monitoring
+5. Set up SSL/TLS certificates
 
 ## Contact
 For questions or support, please open an issue on the [GitHub repository](https://github.com/AdarBahar/API-Sample/issues).

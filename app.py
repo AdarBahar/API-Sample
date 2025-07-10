@@ -18,8 +18,12 @@ API to retrieve usage and cost reports for your account.
 All query parameters are optional except `account_id`.
 Results are ordered by `start_date` (newest to oldest).
 
-⚠️ The API enforces an internal maximum of **10 rows**.
-If your query returns more than this limit, a `RowLimitExceeded` error is returned.
+📊 **Row Limit Control**: You can specify a custom row limit using the `limit` parameter.
+- Default limit: **10 rows**
+- Maximum limit: **100 rows**
+- If your query returns more than the specified limit, a `RowLimitExceeded` error is returned.
+
+⚠️ **Note**: The `limit` parameter is available for testing purposes only and should be removed in production environments.
     """,
     docs_url=None,
     redoc_url=None
@@ -122,7 +126,8 @@ async def redoc_html():
     return HTMLResponse(content=html_content)
 
 CSV_FILE = "cost_report.csv"
-MAX_ROWS_LIMIT = 10  # Internal maximum rows limit
+MAX_ROWS_LIMIT = 10  # Default maximum rows limit
+ABSOLUTE_MAX_ROWS_LIMIT = 100  # Absolute maximum rows limit (cannot be exceeded)
 
 def load_dataframe():
     try:
@@ -206,7 +211,8 @@ def get_usage_report(
     end_date: Optional[str] = Query(None, description="Filter for usage ending on or before this date (YYYY-MM-DD)."),
     region: Optional[str] = Query(None, description="Filter by region."),
     tag1: Optional[str] = Query(None, description="Filter by tag1 value (key1:value)."),
-    tag2: Optional[str] = Query(None, description="Filter by tag2 value (key2:value).")
+    tag2: Optional[str] = Query(None, description="Filter by tag2 value (key2:value)."),
+    limit: Optional[int] = Query(MAX_ROWS_LIMIT, description=f"⚠️ **TESTING ONLY**: Maximum number of rows to return (default: {MAX_ROWS_LIMIT}, max: {ABSOLUTE_MAX_ROWS_LIMIT}). This parameter should be removed in production environments.", ge=1, le=ABSOLUTE_MAX_ROWS_LIMIT)
 ):
     """Get usage and cost report.
 
@@ -214,8 +220,8 @@ def get_usage_report(
     All query parameters are optional except `account_id`, which is mandatory.
     You may use any combination of the optional parameters to filter results.
 
-    The API enforces an internal maximum of **10 rows**.
-    If the number of matching rows exceeds this limit, a `RowLimitExceeded` error is returned.
+    The API allows you to specify a custom row limit (default: 10, max: 100).
+    If the number of matching rows exceeds the specified limit, a `RowLimitExceeded` error is returned.
     Results are ordered by `start_date` (newest to oldest).
 
     Parameters:
@@ -228,11 +234,12 @@ def get_usage_report(
     - `region`: Filter by region.
     - `tag1`: Filter by tag1 value (key1:value).
     - `tag2`: Filter by tag2 value (key2:value).
+    - `limit`: Maximum number of rows to return (default: 10, max: 100). **TESTING ONLY** - remove in production.
 
     Responses:
-    - 200: Successful usage and cost report retrieval (up to 10 rows).
-    - 400: Bad request, validation failed (e.g. invalid date format).
-    - 413: RowLimitExceeded — the number of rows matching the request exceeds the internal limit of 10.
+    - 200: Successful usage and cost report retrieval (up to specified limit).
+    - 400: Bad request, validation failed (e.g. invalid date format, invalid limit).
+    - 413: RowLimitExceeded — the number of rows matching the request exceeds the specified limit.
     """
     try:
         # Validate account_id parameter
@@ -291,7 +298,7 @@ def get_usage_report(
         if filtered.empty:
             return UsageReportResponse(data=[], total_rows=0)
 
-        # Check if result count exceeds max_rows limit
+        # Check if result count exceeds specified limit
         try:
             # Group by unique combinations to get distinct reports count
             unique_groups = filtered.groupby(
@@ -300,13 +307,13 @@ def get_usage_report(
 
             total_available = len(unique_groups)
 
-            # If total available exceeds internal limit, return error
-            if total_available > MAX_ROWS_LIMIT:
+            # If total available exceeds specified limit, return error
+            if total_available > limit:
                 return JSONResponse(
                     status_code=413,
                     content={
                         "error": "RowLimitExceeded",
-                        "message": f"The number of rows matching your request exceeds the allowed maximum of {MAX_ROWS_LIMIT}. Please adjust your filters."
+                        "message": f"The number of rows matching your request ({total_available}) exceeds the specified limit of {limit}. Please adjust your filters or increase the limit (max: {ABSOLUTE_MAX_ROWS_LIMIT})."
                     }
                 )
 
